@@ -293,7 +293,6 @@ class PacmanGameController:
             for line in f:
                 self.ascii_maze.append(line.replace('\n', ''))
 
-        print(self.ascii_maze)
         self.numpy_maze = []
         self.cookie_spaces = []
         self.reachable_spaces = []
