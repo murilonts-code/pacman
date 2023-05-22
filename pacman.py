@@ -12,8 +12,10 @@ class Direction(Enum):
     DOWN = 3,
     NONE = 4
 
+
 def translate_screen_to_maze(in_coords, in_size=32):
     return int(in_coords[0] / in_size), int(in_coords[1] / in_size)
+
 
 def translate_maze_to_screen(in_coords, in_size=32):
     return in_coords[0] * in_size, in_coords[1] * in_size
@@ -85,11 +87,21 @@ class GameRenderer:
                 game_object.tick()
                 game_object.draw()
 
+            if self.check_collision_ghost_hero():
+                self._done = True
+                break
+
             pygame.display.flip()
             self._clock.tick(in_fps)
             self._screen.fill(black)
             self._handle_events()
         print("Game over")
+
+    def check_collision_ghost_hero(self):
+        for ghost in self._game_objects:
+            if isinstance(ghost, Ghost) and self._hero.collides_with(ghost):
+                return True
+        return False
 
     def add_game_object(self, obj: GameObject):
         self._game_objects.append(obj)
@@ -148,17 +160,20 @@ class MovableObject(GameObject):
         self.direction_buffer = in_direction
 
     def collides_with_wall(self, in_position):
-        collision_rect = pygame.Rect(in_position[0], in_position[1], self._size, self._size)
+        collision_rect = pygame.Rect(
+            in_position[0], in_position[1], self._size, self._size)
         collides = False
         walls = self._renderer.get_walls()
         for wall in walls:
             collides = collision_rect.colliderect(wall.get_shape())
-            if collides: break
+            if collides:
+                break
         return collides
 
     def check_collision_in_direction(self, in_direction: Direction):
         desired_position = (0, 0)
-        if in_direction == Direction.NONE: return False, desired_position
+        if in_direction == Direction.NONE:
+            return False, desired_position
         if in_direction == Direction.UP:
             desired_position = (self.x, self.y - 1)
         elif in_direction == Direction.DOWN:
@@ -203,7 +218,8 @@ class Hero(MovableObject):
             self.current_direction = self.direction_buffer
 
         if self.collides_with_wall((self.x, self.y)):
-            self.set_position(self.last_non_colliding_position[0], self.last_non_colliding_position[1])
+            self.set_position(
+                self.last_non_colliding_position[0], self.last_non_colliding_position[1])
 
         self.handle_cookie_pickup()
 
@@ -229,7 +245,14 @@ class Hero(MovableObject):
 
     def draw(self):
         half_size = self._size / 2
-        pygame.draw.circle(self._surface, self._color, (self.x + half_size, self.y + half_size), half_size)
+        pygame.draw.circle(self._surface, self._color,
+                           (self.x + half_size, self.y + half_size), half_size)
+
+    def collides_with(self, obj):
+        return (self.x < obj.x + obj._size and
+                self.x + self._size > obj.x and
+                self.y < obj.y + obj._size and
+                self.y + self._size > obj.y)
 
 
 class Ghost(MovableObject):
@@ -337,7 +360,8 @@ if __name__ == "__main__":
     unified_size = 32
     pacman_game = PacmanGameController()
     size = pacman_game.size
-    game_renderer = GameRenderer(size[0] * unified_size, size[1] * unified_size)
+    game_renderer = GameRenderer(
+        size[0] * unified_size, size[1] * unified_size)
 
     for y, row in enumerate(pacman_game.numpy_maze):
         for x, column in enumerate(row):
@@ -368,7 +392,8 @@ if __name__ == "__main__":
 
     for cookie_space in pacman_game.cookie_spaces:
         translated = translate_maze_to_screen(cookie_space)
-        cookie = Cookie(game_renderer, translated[0] + unified_size / 2, translated[1] + unified_size / 2)
+        cookie = Cookie(
+            game_renderer, translated[0] + unified_size / 2, translated[1] + unified_size / 2)
         game_renderer.add_cookie(cookie)
 
     for i, ghost_spawn in enumerate(pacman_game.ghost_spawns):
