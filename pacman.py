@@ -68,17 +68,59 @@ class Wall(GameObject):
 
 class GameRenderer:
     def __init__(self, in_width: int, in_height: int):
+        self._hero = None
+        self._cookies = None
+        self._walls = None
+        self._done = None
+        self._game_objects = None
+        self._clock = None
+        self._cookies_count = None
+        self._screen = None
+        self._height = None
+        self._width = None
         pygame.init()
+        self.init_render(in_width, in_height)
+
+    def init_render(self, in_width: int, in_height: int):
         self._width = in_width
         self._height = in_height
         self._screen = pygame.display.set_mode((in_width, in_height))
         pygame.display.set_caption('Pacman')
         self._clock = pygame.time.Clock()
+        self._cookies_count = 1
         self._done = False
         self._game_objects = []
         self._walls = []
         self._cookies = []
         self._hero: Hero = None
+        self.build_map()
+        pacman = Hero(self, unified_size, unified_size, unified_size)
+        self.add_hero(pacman)
+        self.tick(120)
+
+    def create_new_map(self, map_name, map_level):
+        pacman_game.create_map(map_name,map_level)
+        size = pacman_game.size
+        self.init_render(size[0] * unified_size, size[1] * unified_size)
+        self.build_map()
+
+    def build_map(self):
+        for y, row in enumerate(pacman_game.numpy_maze):
+            for x, column in enumerate(row):
+                if column == 0:
+                    self.add_wall(Wall(self, x, y, unified_size))
+
+        for cookie_space in pacman_game.cookie_spaces:
+            translated = translate_maze_to_screen(cookie_space)
+            cookie = Cookie(
+                self, translated[0] + unified_size / 2, translated[1] + unified_size / 2)
+            self.add_cookie(cookie)
+
+        for i, ghost_spawn in enumerate(pacman_game.ghost_spawns):
+            translated = translate_maze_to_screen(ghost_spawn)
+            ghost = Ghost(self, translated[0], translated[1], unified_size, pacman_game,
+                          pacman_game.ghost_colors[i % 4])
+            self.add_game_object(ghost)
 
     def tick(self, in_fps: int):
         black = (0, 0, 0)
@@ -95,7 +137,15 @@ class GameRenderer:
             self._clock.tick(in_fps)
             self._screen.fill(black)
             self._handle_events()
+            self.count_cookies()
         print("Game over")
+
+    def count_cookies(self):
+        a = 0
+        for obj in self._game_objects:
+            if isinstance(obj, Cookie):
+                a = a + 1
+        self._cookies_count = a
 
     def check_collision_ghost_hero(self):
         for ghost in self._game_objects:
@@ -113,6 +163,9 @@ class GameRenderer:
     def add_wall(self, obj: Wall):
         self.add_game_object(obj)
         self._walls.append(obj)
+
+    def get_cookies_count(self):
+        return self._cookies_count
 
     def get_walls(self):
         return self._walls
@@ -242,6 +295,8 @@ class Hero(MovableObject):
             collides = collision_rect.colliderect(cookie.get_shape())
             if collides and cookie in game_objects:
                 game_objects.remove(cookie)
+        if self._renderer.get_cookies_count() == 0:
+            self._renderer.create_new_map('map2.txt', 2)
 
     def draw(self):
         half_size = self._size / 2
@@ -310,15 +365,31 @@ class Pathfinder:
 
 
 class PacmanGameController:
-    def __init__(self):
+    def __init__(self, map_name, map_level):
+        self.map_level = None
+        self.ascii_maze = None
+        self.size = None
+        self.ghost_colors = None
+        self.ghost_spawns = None
+        self.reachable_spaces = None
+        self.cookie_spaces = None
+        self.numpy_maze = None
+        self.cookie_number = None
+        self.create_map(map_name, map_level)
+        self.p = Pathfinder(self.numpy_maze)
+
+    def create_map(self, map_name, map_level):
         self.ascii_maze = []
-        with open('map.txt', 'r') as f:
+
+        with open(map_name, 'r') as f:
             for line in f:
                 self.ascii_maze.append(line.replace('\n', ''))
 
+        self.map_level = map_level
         self.numpy_maze = []
         self.cookie_spaces = []
         self.reachable_spaces = []
+        self.cookie_number = 0
         self.ghost_spawns = []
         self.ghost_colors = [
             (255, 184, 255),
@@ -358,50 +429,9 @@ class PacmanGameController:
 
 if __name__ == "__main__":
     unified_size = 32
-    pacman_game = PacmanGameController()
+    pacman_game = PacmanGameController('map.txt')
     size = pacman_game.size
-    game_renderer = GameRenderer(
-        size[0] * unified_size, size[1] * unified_size)
+    print(size)
+    game_renderer = GameRenderer(size[0] * unified_size, size[1] * unified_size)
 
-    for y, row in enumerate(pacman_game.numpy_maze):
-        for x, column in enumerate(row):
-            if column == 0:
-                game_renderer.add_wall(Wall(game_renderer, x, y, unified_size))
 
-    # Vykresleni cesty
-    # red = (255, 0, 0)
-    # green = (0, 255, 0)
-    # _from = (1, 1)
-    # _to = (24, 24)
-    # path_array = pacman_game.p.get_path(_from[1], _from[0], _to[1], _to[0])
-    #
-    # print(path_array)
-    # # [(1, 2), (1, 3), (1, 4), (1, 5), (2, 5), (3, 5), (4, 5), (5, 5), (6, 5), (6, 6), (6, 7) ...
-    #
-    # white = (255, 255, 255)
-    # for path in path_array:
-    #     game_renderer.add_game_object(Wall(game_renderer, path[0], path[1], unified_size, white))
-    #
-    # from_translated = translate_maze_to_screen(_from)
-    # game_renderer.add_game_object(
-    #     GameObject(game_renderer, from_translated[0], from_translated[1], unified_size, red))
-    #
-    # to_translated = translate_maze_to_screen(_to)
-    # game_renderer.add_game_object(
-    #     GameObject(game_renderer, to_translated[0], to_translated[1], unified_size, green))
-
-    for cookie_space in pacman_game.cookie_spaces:
-        translated = translate_maze_to_screen(cookie_space)
-        cookie = Cookie(
-            game_renderer, translated[0] + unified_size / 2, translated[1] + unified_size / 2)
-        game_renderer.add_cookie(cookie)
-
-    for i, ghost_spawn in enumerate(pacman_game.ghost_spawns):
-        translated = translate_maze_to_screen(ghost_spawn)
-        ghost = Ghost(game_renderer, translated[0], translated[1], unified_size, pacman_game,
-                      pacman_game.ghost_colors[i % 4])
-        game_renderer.add_game_object(ghost)
-
-    pacman = Hero(game_renderer, unified_size, unified_size, unified_size)
-    game_renderer.add_hero(pacman)
-    game_renderer.tick(120)
