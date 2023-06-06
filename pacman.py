@@ -4,6 +4,44 @@ import tcod
 import random
 from enum import Enum
 
+level = 1
+
+
+def win_screen():
+    screen = pygame.display.set_mode((800, 600))
+    fonte = pygame.font.Font(None, 36)
+    texto = fonte.render("Você concluiu!", True, (255, 255, 255))
+    posicao_texto = texto.get_rect(
+        center=(screen.get_width() // 2, screen.get_height() // 2))
+
+    while True:
+        screen.fill((0, 0, 0))
+        screen.blit(texto, posicao_texto)
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return
+
+
+def lose_screen():
+    screen = pygame.display.set_mode((800, 600))
+    fonte = pygame.font.Font(None, 36)
+    texto = fonte.render("Você morreu!", True, (255, 255, 255))
+    posicao_texto = texto.get_rect(
+        center=(screen.get_width() // 2, screen.get_height() // 2))
+
+    while True:
+        screen.fill((0, 0, 0))
+        screen.blit(texto, posicao_texto)
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return
+
 
 class Direction(Enum):
     LEFT = 0
@@ -99,7 +137,7 @@ class GameRenderer:
         self.tick(120)
 
     def create_new_map(self, map_name, map_level):
-        pacman_game.create_map(map_name,map_level)
+        pacman_game.create_map(map_name, map_level)
         size = pacman_game.size
         self.init_render(size[0] * unified_size, size[1] * unified_size)
         self.build_map()
@@ -138,7 +176,7 @@ class GameRenderer:
             self._screen.fill(black)
             self._handle_events()
             self.count_cookies()
-        print("Game over")
+        lose_screen()
 
     def count_cookies(self):
         a = 0
@@ -296,7 +334,18 @@ class Hero(MovableObject):
             if collides and cookie in game_objects:
                 game_objects.remove(cookie)
         if self._renderer.get_cookies_count() == 0:
-            self._renderer.create_new_map('map2.txt', 2)
+            global level
+            if level == 1:
+                level += 1
+                self._renderer.create_new_map(
+                    r'map2.txt', 2)
+            elif level == 2:
+                level += 1
+                self._renderer.create_new_map(
+                    r'map3.txt', 3)
+            else:
+                level = 1
+                win_screen()
 
     def draw(self):
         half_size = self._size / 2
@@ -429,9 +478,10 @@ class PacmanGameController:
 
 if __name__ == "__main__":
     unified_size = 32
-    pacman_game = PacmanGameController('map.txt')
-    size = pacman_game.size
-    print(size)
-    game_renderer = GameRenderer(size[0] * unified_size, size[1] * unified_size)
-
-
+    if level == 1:
+        pacman_game = PacmanGameController(
+            r'map.txt', 1)
+        size = pacman_game.size
+        print(size)
+        game_renderer = GameRenderer(
+            size[0] * unified_size, size[1] * unified_size)
